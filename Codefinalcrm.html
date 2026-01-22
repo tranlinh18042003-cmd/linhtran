@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUNDN CRM - Solar Smart Edition (Real Road Routing)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* FONT & GENERAL */
+        body { font-family: 'Inter', sans-serif; color: #f8fafc; overflow: hidden; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.4); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.6); }
+        
+        /* ANIMATIONS */
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* GLASS UTILITIES */
+        .glass-header { background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255, 255, 255, 0.15); }
+        .glass-sidebar { background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(15px); border-right: 1px solid rgba(255, 255, 255, 0.15); }
+        .glass-widget { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+
+        /* KANBAN STYLES */
+        .kanban-col-wrapper { height: 100%; display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.1); border-right: 2px dashed rgba(255, 255, 255, 0.55); }
+        .kanban-col-header { padding: 12px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        /* TASK CARD */
+        .task-card { background: rgba(30, 41, 59, 0.98); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); border-left: 4px solid #3b82f6; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); text-shadow: none; position: relative; }
+        .task-card:hover { background: #1e293b; transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6); z-index: 10; border-color: rgba(255, 255, 255, 0.4); }
+
+        /* NAVIGATION PILLS */
+        .nav-pill-active { background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); color: white; font-weight: 700; box-shadow: 0 4px 15px rgba(234, 88, 12, 0.6); border: 1px solid rgba(255, 255, 255, 0.4); }
+        .nav-pill-inactive { background: rgba(0, 0, 0, 0.45); color: #e2e8f0; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.15); }
+        .nav-pill-inactive:hover { background: rgba(0, 0, 0, 0.6); color: #fff; }
+
+        /* SALE KIT CARD */
+        .kit-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s; }
+        .kit-card:hover { background: rgba(255, 255, 255, 0.15); transform: translateY(-5px); border-color: #f97316; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+        /* CALENDAR */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background-color: rgba(255, 255, 255, 0.15); }
+        .calendar-cell { min-height: 100px; background-color: rgba(15, 23, 42, 0.55); transition: background 0.2s; backdrop-filter: blur(4px); }
+        .calendar-cell:hover { background-color: rgba(15, 23, 42, 0.8); }
+
+        /* STAGE HEADER COLORS */
+        .header-red { border-top: 3px solid #ef4444; } 
+        .header-emerald { border-top: 3px solid #10b981; } 
+        .header-blue { border-top: 3px solid #3b82f6; } 
+        .header-indigo { border-top: 3px solid #6366f1; } 
+        .header-orange { border-top: 3px solid #f97316; }
+        .header-purple { border-top: 3px solid #a855f7; }
+        .header-gray { border-top: 3px solid #94a3b8; }
+
+        /* UTILS */
+        .full-center-modal { width: 500px !important; margin: auto; height: auto !important; max-height: 90vh; }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+
+        /* INPUT STYLES FOR ADD FORM */
+        .input-clean { background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 10px 12px; color: white; font-size: 14px; width: 100%; transition: all 0.2s; }
+        .input-clean:focus { border-color: #f97316; background: rgba(0, 0, 0, 0.4); outline: none; box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2); }
+        .label-clean { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; display: block; text-shadow: none; }
+
+        /* MAP CUSTOM */
+        .leaflet-popup-content-wrapper { background: rgba(30, 41, 59, 0.95); color: white; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); border-radius: 8px; }
+        .leaflet-popup-tip { background: rgba(30, 41, 59, 0.95); }
+        .leaflet-container { font-family: 'Inter', sans-serif; }
+        
+        /* HIDE ROUTING TEXT INSTRUCTIONS (We only want the visual line) */
+        .leaflet-routing-container { display: none !important; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden relative">
+
+    <div class="absolute inset-0 z-0">
+        <img src="https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=2000&auto=format&fit=crop" class="w-full h-full object-cover" alt="Sunset Solar Background">
+        <div class="absolute inset-0 bg-black/20 pointer-events-none"></div>
+    </div>
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none"></div>
+
+    <div class="w-16 lg:w-64 glass-sidebar flex flex-col flex-shrink-0 z-20 relative">
+        <div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10 gap-3 bg-slate-900/30">
+            <div class="w-9 h-9 bg-gradient-to-br from-yellow-400 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-orange-500/30"><i class="fa-solid fa-sun"></i></div>
+            <span class="font-bold text-lg hidden lg:block tracking-wide text-white drop-shadow-md">SUNDN SOLAR</span>
+        </div>
+        <div class="p-4 space-y-2">
+            <div class="px-3 py-3 bg-orange-600/70 border border-orange-400/50 text-white font-bold rounded-xl flex items-center gap-3 cursor-default shadow-lg backdrop-blur-md">
+                <i class="fa-solid fa-layer-group"></i> <span class="hidden lg:block">Quy trình (Pipeline)</span>
+            </div>
+            <a href="#" onclick="switchTab('list')" class="flex items-center gap-3 px-3 py-3 text-slate-100 hover:text-white hover:bg-black/30 rounded-xl transition font-medium text-shadow"><i class="fa-solid fa-users"></i> <span class="hidden lg:block">Danh sách</span></a>
+            <a href="#" onclick="switchTab('map')" class="flex items-center gap-3 px-3 py-3 text-slate-100 hover:text-white hover:bg-black/30 rounded-xl transition font-medium text-shadow"><i class="fa-solid fa-map-location-dot"></i> <span class="hidden lg:block">Bản đồ</span></a>
+            
+            <a href="#" onclick="switchTab('salekit')" class="flex items-center gap-3 px-3 py-3 text-slate-100 hover:text-white hover:bg-black/30 rounded-xl transition font-medium text-shadow"><i class="fa-solid fa-briefcase"></i> <span class="hidden lg:block">Tài liệu Sale</span></a>
+            <a href="#" class="flex items-center gap-3 px-3 py-3 text-slate-100 hover:text-white hover:bg-black/30 rounded-xl transition font-medium text-shadow"><i class="fa-solid fa-chart-pie"></i> <span class="hidden lg:block">Báo cáo</span></a>
+            <a href="#" class="flex items-center gap-3 px-3 py-3 text-slate-100 hover:text-white hover:bg-black/30 rounded-xl transition font-medium text-shadow"><i class="fa-solid fa-gear"></i> <span class="hidden lg:block">Cài đặt</span></a>
+        </div>
+        <div class="mt-auto p-4 border-t border-white/10 bg-slate-900/40 backdrop-blur-sm">
+            <div class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/10 cursor-pointer transition">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 border-2 border-white/40 shadow-md"></div>
+                <div class="hidden lg:block"><div class="text-xs font-bold text-white shadow-black drop-shadow-sm">Quản trị viên</div><div class="text-[10px] text-cyan-300 font-medium"><i class="fa-solid fa-circle text-[6px] mr-1"></i>Trực tuyến</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col min-w-0 relative z-10">
+        <header class="h-16 glass-header px-6 flex justify-between items-center shadow-md flex-shrink-0">
+            <div class="flex items-center gap-4">
+                <h1 class="text-xl font-bold text-white flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"><span id="headerTitle">Tổng Quan Quy Trình</span></h1>
+                <span class="text-xs font-medium text-white bg-black/30 px-3 py-1 rounded-full border border-white/20 flex items-center gap-2 shadow-sm backdrop-blur-md" id="currentDateDisplay">--/--</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="openModal()" class="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-orange-500/40 flex items-center gap-2 text-sm transition transform hover:scale-105 active:scale-95 border border-white/30 backdrop-blur-sm">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Thêm Khách Mới</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="px-6 py-5 flex-shrink-0">
+            <div class="flex justify-center">
+                <div class="rounded-full p-1.5 flex gap-1 shadow-2xl backdrop-blur-md bg-black/30 border border-white/20">
+                    <button onclick="switchTab('pipeline')" id="tab-pipeline" class="nav-pill-active px-6 py-2 rounded-full text-sm transition flex items-center gap-2 relative">
+                        <i class="fa-solid fa-kanban"></i> Quy trình
+                    </button>
+                    
+                    <button onclick="switchTab('activities')" id="tab-activities" class="nav-pill-inactive px-6 py-2 rounded-full text-sm transition flex items-center gap-2 relative">
+                        <i class="fa-solid fa-list-check"></i> Hoạt động
+                        <span id="tabActivityBadge" class="hidden absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-white shadow-md animate-pulse">0</span>
+                    </button>
+
+                    <button onclick="switchTab('list')" id="tab-list" class="nav-pill-inactive px-6 py-2 rounded-full text-sm transition flex items-center gap-2"><i class="fa-solid fa-users-rectangle"></i> Danh sách</button>
+                    
+                    <button onclick="switchTab('map')" id="tab-map" class="nav-pill-inactive px-6 py-2 rounded-full text-sm transition flex items-center gap-2"><i class="fa-solid fa-map-location-dot"></i> Bản đồ</button>
+
+                    <button onclick="switchTab('calendar')" id="tab-calendar" class="nav-pill-inactive px-6 py-2 rounded-full text-sm transition flex items-center gap-2"><i class="fa-regular fa-calendar-days"></i> Lịch</button>
+
+                    <button onclick="switchTab('salekit')" id="tab-salekit" class="nav-pill-inactive px-6 py-2 rounded-full text-sm transition flex items-center gap-2"><i class="fa-solid fa-briefcase"></i> Tài liệu</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-pipeline" class="flex-1 overflow-hidden px-6 pb-6 flex flex-col">
+            <div class="flex-1 flex gap-5 overflow-x-auto pb-4 custom-scrollbar" id="kanbanBoard"></div>
+        </div>
+
+        <div id="view-activities" class="flex-1 overflow-hidden px-6 pb-6 hidden flex-col">
+            <div class="flex-1 flex gap-5 overflow-x-auto pb-4 custom-scrollbar" id="activityBoard"></div>
+        </div>
+
+        <div id="view-list" class="flex-1 overflow-hidden px-6 pb-6 hidden">
+            <div class="glass-widget rounded-2xl h-full flex flex-col shadow-2xl overflow-hidden">
+                <div class="p-5 border-b border-white/10 bg-black/40 flex flex-wrap gap-4 justify-between items-center">
+                    <h3 class="font-bold text-white text-lg drop-shadow-md flex items-center gap-2"><i class="fa-solid fa-list"></i> Danh sách Khách hàng</h3>
+                    <div class="flex gap-3 items-center">
+                        <select id="listFilterStatus" onchange="renderList()" class="bg-black/50 border border-white/20 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:border-orange-500 outline-none appearance-none cursor-pointer hover:bg-white/5 transition">
+                            <option value="all">Tất cả Trạng thái</option>
+                            <option value="process">🔹 Đang xử lý</option>
+                            <option value="pending">⏳ Tạm hoãn (Dài hạn)</option>
+                            <option value="won">✅ Thành công</option>
+                            <option value="lost">❌ Thất bại/Dừng</option>
+                        </select>
+                        <select id="listFilterOwner" onchange="renderList()" class="bg-black/50 border border-white/20 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:border-orange-500 outline-none appearance-none cursor-pointer hover:bg-white/5 transition"><option value="all">Tất cả Phụ trách</option><option value="Admin User">Quản trị viên</option><option value="Sale Team 1">Đội Sale 1</option><option value="Sale Team 2">Đội Sale 2</option></select>
+                        <input type="text" id="listSearch" onkeyup="renderList()" placeholder="Tìm tên, SĐT..." class="bg-black/50 border border-white/20 rounded-lg pl-3 pr-3 py-2 text-sm text-white focus:border-orange-500 outline-none w-56 transition placeholder-slate-400">
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar"><table class="w-full text-left border-collapse"><thead class="bg-black/40 text-xs text-white uppercase sticky top-0 backdrop-blur-md shadow-sm z-10"><tr><th class="p-4 font-semibold border-b border-white/10">Khách hàng</th><th class="p-4 font-semibold border-b border-white/10">Địa chỉ</th><th class="p-4 font-semibold border-b border-white/10">Trạng thái</th><th class="p-4 font-semibold border-b border-white/10">Giá trị Deal</th><th class="p-4 font-semibold border-b border-white/10">Phụ trách</th><th class="p-4 font-semibold border-b border-white/10 text-right">Thao tác</th></tr></thead><tbody id="listTableBody" class="text-sm text-slate-200 divide-y divide-white/10"></tbody></table></div>
+                <div class="p-3 bg-black/40 border-t border-white/10 text-xs text-slate-400 flex justify-between"><span id="listTotalCount">Tổng: 0 khách hàng</span><span>Hiển thị kết quả tìm kiếm</span></div>
+            </div>
+        </div>
+
+        <div id="view-map" class="flex-1 overflow-hidden px-6 pb-6 hidden">
+             <div class="flex gap-6 h-full w-full">
+                 <div class="w-1/3 glass-widget rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+                     <div class="p-4 border-b border-white/10 bg-black/40">
+                         <h3 class="font-bold text-white text-lg flex items-center gap-2"><i class="fa-solid fa-location-dot text-orange-500"></i> Địa điểm cần đi</h3>
+                         <p class="text-xs text-slate-400 mt-1">Danh sách việc cần làm <b>hôm nay</b> tại công trình</p>
+                     </div>
+                     
+                     <div class="p-4 border-b border-white/10 bg-indigo-900/20">
+                         <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Điểm xuất phát (Start Point)</label>
+                         <div class="flex gap-2 mb-2">
+                             <input type="text" id="routeStart" value="Văn phòng SUNDN (159 Ngũ Hành Sơn, P. Mỹ An, Q. Ngũ Hành Sơn, Tp. Đà Nẵng)" class="w-full bg-black/40 border border-white/20 rounded px-2 py-1 text-xs text-white focus:border-orange-500 outline-none truncate">
+                         </div>
+                         <div class="flex gap-2">
+                             <button onclick="calculateRoute()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded shadow transition"><i class="fa-solid fa-route"></i> Gợi ý Lộ trình</button>
+                             <button onclick="openGoogleMapsRoute()" class="flex-1 bg-green-700 hover:bg-green-600 text-white text-xs font-bold py-2 rounded shadow transition"><i class="fa-brands fa-google"></i> Mở Google Maps</button>
+                         </div>
+                         <p class="text-[9px] text-slate-400 mt-2 italic">*Hệ thống sẽ vẽ đường đi thực tế qua các con phố.</p>
+                     </div>
+
+                     <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3" id="mapListContainer"></div>
+                 </div>
+                 <div class="flex-1 glass-widget rounded-2xl shadow-2xl overflow-hidden relative border border-white/20">
+                     <div id="leafletMap" class="w-full h-full bg-slate-800 z-10"></div>
+                 </div>
+             </div>
+        </div>
+
+        <div id="view-calendar" class="flex-1 overflow-hidden px-6 pb-6 hidden flex-col">
+            <div class="glass-widget h-full rounded-2xl flex flex-col p-5 shadow-2xl">
+                <div class="flex justify-between items-center mb-5"><h2 class="text-2xl font-bold text-white flex items-center gap-3 drop-shadow-md"><span class="bg-white/10 p-2 rounded-lg text-white border border-white/20"><i class="fa-regular fa-calendar"></i></span><span id="calendarMonthTitle">...</span></h2><div class="flex gap-1 bg-black/30 p-1 rounded-lg border border-white/20"><button onclick="changeMonth(-1)" class="p-2 hover:bg-white/20 rounded-md text-white transition"><i class="fa-solid fa-chevron-left"></i></button><button onclick="changeMonth(1)" class="p-2 hover:bg-white/20 rounded-md text-white transition"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+                <div class="grid grid-cols-7 gap-1 mb-2 text-center text-white font-bold text-xs uppercase tracking-widest bg-black/30 py-2 rounded-lg border border-white/10"><div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div>CN</div></div>
+                <div class="calendar-grid flex-1 rounded-xl overflow-y-auto border border-white/15 shadow-inner custom-scrollbar" id="calendarGrid"></div>
+            </div>
+        </div>
+
+        <div id="view-salekit" class="flex-1 overflow-hidden px-6 pb-6 hidden">
+            <div class="glass-widget rounded-2xl h-full flex flex-col shadow-2xl overflow-hidden p-8">
+                <div class="mb-8 border-b border-white/10 pb-4">
+                    <h2 class="text-3xl font-bold text-white mb-2 flex items-center gap-3"><i class="fa-solid fa-briefcase text-orange-500"></i> SUNDN TÀI LIỆU (SALE KIT)</h2>
+                    <p class="text-slate-300">Tài liệu hỗ trợ bán hàng & Marketing (Click để tải PDF)</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-y-auto custom-scrollbar p-2" id="saleKitGrid">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="quickActivityModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-[70]">
+        <div class="glass-widget rounded-xl p-6 w-[400px] bg-slate-900 border border-white/20 shadow-2xl animate-fade-in-up">
+            <h3 class="font-bold text-white text-lg mb-4 flex items-center gap-2"><i class="fa-solid fa-list-check text-indigo-400"></i> Thêm Hoạt Động Mới</h3>
+            <input type="hidden" id="qaCustomerId">
+            <div class="space-y-4">
+                <div><label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nội dung</label><input type="text" id="qaTitle" class="w-full bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:border-indigo-500 outline-none" placeholder="VD: Gọi lại lúc 9h sáng..."></div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Hình thức</label>
+                    <select id="qaType" class="w-full bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:border-indigo-500 outline-none cursor-pointer">
+                        <option value="online">📞 Trực tuyến / Gọi điện</option>
+                        <option value="onsite">🚗 Gặp mặt / Tại công trình</option>
+                    </select>
+                </div>
+
+                <div><label class="block text-xs font-bold text-slate-400 uppercase mb-1">Thời gian</label><input type="datetime-local" id="qaDate" class="w-full bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:border-indigo-500 outline-none cursor-pointer"></div>
+                <div class="flex justify-end gap-2 pt-2"><button onclick="closeQuickActivity()" class="px-3 py-2 text-slate-400 text-xs font-bold hover:text-white transition">Hủy</button><button onclick="saveQuickActivity()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow transition">Lưu & Lên Lịch</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="customerModal" class="fixed inset-0 bg-black/75 backdrop-blur-md hidden items-center justify-center z-50">
+        <div id="modalContent" class="glass-widget rounded-2xl shadow-2xl w-[95%] max-w-[1400px] h-[95vh] flex overflow-hidden border border-white/20 relative transition-all duration-300 bg-slate-900/98">
+            <button onclick="closeModal()" class="absolute top-4 right-4 z-50 text-slate-300 hover:text-white bg-black/40 hover:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center transition border border-white/10"><i class="fa-solid fa-xmark"></i></button>
+
+            <div id="profileColumn" class="w-1/5 bg-black/30 p-6 border-r border-white/10 overflow-y-auto flex flex-col transition-all duration-300">
+                <h3 class="font-bold text-orange-400 text-xs uppercase mb-6 tracking-widest border-b border-orange-500/20 pb-2 text-shadow-none flex items-center gap-2"><i class="fa-regular fa-id-card"></i> Hồ sơ Khách hàng</h3>
+                <div class="space-y-5 text-white flex-1">
+                    <input type="hidden" id="cId">
+                    
+                    <div class="group relative">
+                        <label class="label-clean">Tên Khách Hàng</label>
+                        <input type="text" id="cName" class="input-clean" placeholder="Nhập tên khách...">
+                    </div>
+
+                    <div class="group relative">
+                        <label class="label-clean">Số điện thoại</label>
+                        <input type="text" id="cPhone" class="input-clean" placeholder="VD: 0909...">
+                    </div>
+
+                    <div class="group relative">
+                        <label class="label-clean">Địa chỉ (Tự động định vị)</label>
+                        <input type="text" id="cAddress" class="input-clean" placeholder="VD: 123 Nguyễn Văn Linh, ĐN...">
+                    </div>
+
+                    <div class="group relative">
+                        <label class="label-clean">Loại Khách</label>
+                        <select id="cType" class="input-clean bg-slate-900 cursor-pointer">
+                            <option value="Hộ gia đình">Hộ gia đình</option>
+                            <option value="SMEs">Doanh nghiệp vừa & nhỏ (SMEs)</option>
+                            <option value="Nhà máy">Nhà máy / KCN</option>
+                        </select>
+                    </div>
+
+                    <div class="group relative">
+                        <label class="label-clean">Giá trị dự kiến (VNĐ)</label>
+                        <input type="text" id="cValue" class="input-clean text-emerald-400 font-bold" placeholder="VD: 50,000,000">
+                    </div>
+
+                    <div class="group relative">
+                        <label class="label-clean">Người Phụ Trách (PIC)</label>
+                        <select id="cOwner" class="input-clean bg-slate-900 cursor-pointer">
+                            <option value="Admin User">Quản trị viên</option>
+                            <option value="Sale Team 1">Đội Sale 1</option>
+                            <option value="Sale Team 2">Đội Sale 2</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-black/40 p-4 rounded-xl border border-white/10 hidden" id="statusWrapper">
+                        <label class="label-clean text-orange-400">Giai đoạn hiện tại</label>
+                        <select id="cStatus" onchange="manualMoveStage(this.value)" class="w-full bg-transparent text-sm font-bold text-white outline-none cursor-pointer"></select>
+                    </div>
+
+                    <div class="pt-1">
+                        <label class="label-clean">Ngày nhận Lead</label>
+                        <input type="date" id="cDate" class="input-clean">
+                    </div>
+
+                    <div id="dropReasonArea" class="hidden mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                        <label class="text-[10px] font-bold text-red-400 uppercase block mb-1">Lý do thất bại / Dừng</label>
+                        <p id="dropReasonText" class="text-xs text-white italic">...</p>
+                    </div>
+                </div>
+                <div id="addModeButtons" class="hidden mt-6 pt-4 border-t border-white/10 flex justify-end gap-3">
+                    <button onclick="closeModal()" class="px-4 py-2 text-slate-400 font-bold text-xs hover:bg-white/5 rounded-lg transition">Hủy</button>
+                    <button onclick="saveCustomer()" class="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white rounded-lg font-bold text-sm shadow-lg shadow-orange-500/30 transition flex items-center gap-2"><i class="fa-solid fa-check"></i> Lưu</button>
+                </div>
+            </div>
+
+            <div class="w-[45%] flex-1 border-r border-white/10 flex flex-col bg-black/20 relative backdrop-blur-sm" id="middleColumn">
+                
+                <div id="aiModeView" class="hidden flex-col h-full">
+                    <div class="p-5 border-b border-white/10 bg-black/30 flex justify-between items-center"><h3 class="font-bold text-white text-sm flex items-center gap-2"><span class="w-6 h-6 rounded bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-[10px] shadow-lg shadow-purple-500/30"><i class="fa-solid fa-wand-magic-sparkles"></i></span>Trợ lý Chiến lược AI (Phân tích tâm lý)</h3><span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 font-mono">AI Tạo sinh</span></div>
+                    <div class="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+                        <div class="task-card rounded-xl p-4 text-sm text-slate-300 italic shadow-inner border-l-2 border-l-purple-500" id="chatLogArea">AI sẽ phân tích lịch sử Input & Hành vi khách hàng...</div>
+                        <button onclick="runAdvancedAI()" id="btnAnalyze" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-indigo-500/40 transition transform hover:-translate-y-0.5 border border-white/10 flex items-center justify-center gap-2 group"><i class="fa-solid fa-microchip group-hover:animate-pulse"></i> PHÂN TÍCH CHUYÊN SÂU & ĐỀ XUẤT KỊCH BẢN</button>
+                        <div id="aiResultArea" class="hidden space-y-4 pt-2">
+                             <div class="ai-step opacity-0" id="step1"><div class="task-card p-4 rounded-xl text-xs text-slate-300 space-y-2 border border-white/10 relative"><div class="absolute -left-1 top-4 w-1 h-6 bg-blue-500 rounded-r"></div><div class="font-bold text-blue-400 mb-1 uppercase text-[10px] tracking-wider border-b border-blue-500/20 pb-1 w-fit">Bước 1: Trích xuất Dữ liệu</div><div id="aiContext1" class="leading-relaxed text-slate-200 text-sm">...</div></div></div>
+                             <div class="ai-step opacity-0" id="step2"><div class="task-card p-4 rounded-xl text-sm text-slate-200 border border-purple-500/20 relative bg-purple-900/10"><div class="absolute -left-1 top-4 w-1 h-6 bg-purple-500 rounded-r"></div><div class="font-bold text-purple-400 mb-1 uppercase text-[10px] tracking-wider border-b border-purple-500/20 pb-1 w-fit">Bước 2: Phân tích Tâm lý Chuyên sâu</div><div id="aiInsight" class="leading-relaxed whitespace-pre-line mt-2">...</div></div></div>
+                             <div class="ai-step opacity-0" id="step3"><div class="task-card p-5 rounded-xl text-sm text-white font-mono whitespace-pre-wrap leading-relaxed shadow-lg border border-emerald-500/20 bg-emerald-900/10 relative"><div class="absolute top-2 right-2 text-emerald-500/50"><i class="fa-solid fa-quote-right text-xl"></i></div><div class="font-bold text-emerald-400 mb-2 uppercase text-[10px] tracking-wider border-b border-emerald-500/30 pb-1 w-fit">Bước 3: Kịch bản Hội thoại Chi tiết</div><div id="aiScriptContent" class="text-[13px] leading-6">...</div></div></div>
+                        </div>
+                    </div>
+                    <div class="p-5 border-t border-white/10 bg-black/30 flex justify-end">
+                        <button onclick="saveCustomer()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-lg transition">LƯU THÔNG TIN & ĐÓNG</button>
+                    </div>
+                </div>
+                
+                <div id="nurturingModeView" class="hidden flex-col h-full">
+                     <div class="p-5 border-b border-white/10 bg-black/30"><h3 class="font-bold text-white text-sm"><i class="fa-solid fa-leaf text-emerald-500 mr-2"></i> Quy trình Nuôi dưỡng (Nurturing)</h3></div>
+                     <div class="p-5 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+                        <div class="space-y-4" id="nurtureChecklist"></div>
+                     </div>
+                     <div class="p-5 border-t border-white/10 bg-black/30 text-right">
+                         <button onclick="saveCustomer()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-lg transition">LƯU THÔNG TIN & ĐÓNG</button>
+                     </div>
+                </div>
+
+                <div id="pendingModeView" class="hidden flex-col h-full">
+                    <div class="p-5 border-b border-white/10 bg-black/30 bg-gradient-to-r from-slate-900 to-slate-800">
+                        <h3 class="font-bold text-white text-sm flex items-center gap-2 mb-2"><i class="fa-regular fa-clock text-orange-300"></i> PENDING - CHỜ DÀI HẠN</h3>
+                        <div class="p-3 bg-red-900/20 border border-red-500/20 rounded-lg">
+                            <label class="text-[10px] font-bold text-red-400 uppercase block mb-1">Lý do từ chối (Drop Reason)</label>
+                            <p id="pendingReasonDisplay" class="text-sm text-white italic">...</p>
+                        </div>
+                    </div>
+                    <div class="p-5 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+                       <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/10 pb-2">Hoạt động Nuôi dưỡng Dài hạn</h4>
+                       <div class="space-y-4" id="pendingChecklist"></div>
+                    </div>
+                    <div class="p-5 border-t border-white/10 bg-black/30 text-right">
+                        <button onclick="saveCustomer()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-lg transition">LƯU THÔNG TIN & ĐÓNG</button>
+                    </div>
+               </div>
+
+                <div id="sopModeView" class="hidden flex-col h-full">
+                    <div class="p-5 border-b border-white/10 bg-black/30"><h3 class="font-bold text-white text-sm flex items-center gap-2"><i class="fa-solid fa-list-check text-indigo-400"></i> Quy trình chuẩn (SOP)</h3><div class="flex gap-4 mt-2 text-[10px] text-slate-400"><span id="sopObjective">Mục tiêu: ...</span><span id="sopSLA" class="text-indigo-300 font-bold">Thời hạn (SLA): ...</span></div></div>
+                    <div class="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
+                        <div class="p-5 flex-1 space-y-3" id="sopChecklist"></div>
+                        
+                        <div class="p-5 border-t border-white/10 bg-black/30">
+                            <div class="flex justify-between items-center mb-2"><label class="text-[10px] font-bold text-slate-400 uppercase">Input (Lịch sử & Ghi chú)</label><button onclick="document.getElementById('aiFileInput').click()" class="text-[10px] bg-white/5 hover:bg-white/10 px-2 py-1 rounded text-indigo-300 flex items-center gap-1 transition"><i class="fa-solid fa-paperclip"></i> Tải lên</button><input type="file" id="aiFileInput" class="hidden" onchange="alert('Đã chọn file: ' + this.files[0].name)"></div>
+                            <div id="inputHistoryLog" class="mb-3 max-h-24 overflow-y-auto custom-scrollbar space-y-1 p-2 bg-black/20 rounded-lg border border-white/5"></div>
+                            <textarea id="aiInputNote" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white mb-2 focus:border-orange-500 outline-none placeholder-slate-600" rows="2" placeholder="Nhập thông tin mới từ khách..."></textarea>
+                            <div class="flex"><button class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-xs font-bold ml-auto transition shadow-lg" onclick="saveAiInput()">Lưu Input</button></div>
+                        </div>
+                    </div>
+                    <div class="p-5 border-t border-white/10 bg-black/30 flex justify-end">
+                        <button onclick="saveCustomer()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-lg transition">LƯU THÔNG TIN & ĐÓNG</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 p-0 bg-black/20 flex flex-col relative border-l border-white/10" id="rightColumn">
+                <div class="p-5 border-b border-white/10 bg-black/30"><h3 class="font-bold text-white text-sm uppercase flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Lịch sử & Phân tích</h3></div>
+                <div class="flex-1 overflow-y-auto p-6 relative custom-scrollbar">
+                     <div id="dropReasonReview" class="hidden mb-6 p-4 bg-red-900/30 border border-red-500/40 rounded-xl"><div class="font-bold text-red-400 text-xs uppercase mb-2">KẾT LUẬN: LÝ DO KHÁCH DROP</div><div id="dropReasonReviewText" class="text-sm text-white font-serif italic"></div></div>
+                     <div id="wonDealReview" class="hidden mb-6 p-4 bg-emerald-900/30 border border-emerald-500/40 rounded-xl"><div class="font-bold text-emerald-400 text-xs uppercase mb-2 flex items-center gap-2"><i class="fa-solid fa-trophy"></i> DEAL THÀNH CÔNG</div><div class="text-sm text-white italic">Dự án đã được bàn giao và chuyển sang trạng thái thành công.</div></div>
+                     <div id="timelineContent" class="space-y-0 relative"></div>
+                </div>
+                <div class="p-5 border-t border-white/10 bg-black/30 flex justify-end gap-3"><button onclick="closeModal()" class="px-5 py-2.5 text-slate-400 font-bold text-xs hover:bg-white/10 rounded-lg transition">Đóng</button><button onclick="saveCustomer()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-lg shadow-emerald-500/20 transition">Lưu Thay Đổi</button></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const todayReal = new Date();
+    const getDate = (offset) => { const d = new Date(todayReal); d.setDate(d.getDate() + offset); return d.toISOString().split('T')[0]; };
+    document.getElementById('currentDateDisplay').innerHTML = `<i class="fa-regular fa-clock"></i> ${todayReal.toLocaleDateString('vi-VN')}`;
+
+    // STAGE LOGIC (VIETNAMESE)
+    const stages = { 
+        'stage1': { title: '1. Sàng lọc & Phân loại', headerClass: 'header-blue', next: 'stage2' }, 
+        'chase1': { title: '⚠️ Đuổi bám: Khách lạnh', headerClass: 'header-orange', next: 'stage2' }, 
+        'stage2': { title: '2. Khảo sát hiện trạng', headerClass: 'header-emerald', next: 'stage3' }, 
+        'stage3': { title: '3. Đề xuất giải pháp', headerClass: 'header-indigo', next: 'stage4' }, 
+        'chase2': { title: '🔥 Đuổi bám: Khách nóng', headerClass: 'header-red', next: 'stage4' }, 
+        'stage4': { title: '4. Chốt Hợp đồng', headerClass: 'header-purple', next: 'stage5' }, 
+        'stage5': { title: '5. Bàn giao & Nghiệm thu', headerClass: 'header-emerald', next: 'won' }, 
+        'nurturing': { title: '🌱 Nuôi dưỡng', headerClass: 'header-indigo' }, 
+        'pending': { title: '⏳ Tạm hoãn', headerClass: 'header-gray' }, 
+        'archived': { title: '❌ Thất bại', headerClass: 'header-blue' }, 
+        'won': { title: '✅ Thành công', headerClass: 'header-emerald' } 
+    };
+
+    const chaseScripts = { 'chase1': [ {id:'c1_d1', day:1, title:'Gửi PDF So Sánh Kỹ Thuật', content:'Gửi file PDF "So sánh Mái Ngói vs Mái Tôn".'}, {id:'c1_d3', day:3, title:'Gửi Bằng chứng xã hội', content:'Gửi Video quay flycam 3 dự án đã làm.'}, {id:'c1_d7', day:7, title:'Mời Khảo Sát', content:'Gọi điện thoại xin phép đo đạc.'} ], 'chase2': [ {id:'c2_d0', day:0, title:'Gửi Bảng Tính Hoàn Vốn', content:'Gửi file Excel tính toán ROI (Hoàn vốn).'}, {id:'c2_d2', day:2, title:'Gửi Cam Kết Chống Thấm', content:'Gửi văn bản mẫu Cam kết bảo hành.'}, {id:'c2_d4', day:4, title:'Cuộc Gọi Xử Lý Giá', content:'Thực hiện cuộc gọi xử lý từ chối về giá.'}, {id:'c2_d7', day:7, title:'Chốt Deal', content:'Gọi chốt hợp đồng cuối cùng.'} ] };
+    const sops = { 'stage1': { objective: "Xác định nhu cầu.", sla: "15 phút", tasks: [ {id:'s1_t1',title:"Thu thập thông tin", desc: "Xác định hướng nhà, diện tích mái.", due:"15p",dayOffset:0}, {id:'s1_t2',title:"Báo giá sơ bộ", desc: "Gửi báo giá khoảng +/- 15%.", due:"10p",dayOffset:0}, {id:'s1_t3',title:"Hẹn lịch khảo sát", desc: "Đặt lịch hẹn đo đạc thực tế.", due:"Gọi ngay",dayOffset:0} ] }, 'stage2': { objective: "Dữ liệu kỹ thuật.", sla: "4 giờ", tasks: [ {id:'s2_t1',title:"Đo đạc", desc: "Đo đạc kích thước mái thực tế.", due:"Tại chỗ",dayOffset:0}, {id:'s2_t2',title:"Khảo sát tiêu thụ", desc: "Kiểm tra hóa đơn tiền điện/tải tiêu thụ.", due:"Tại chỗ",dayOffset:0}, {id:'s2_t3',title:"Tóm tắt lợi ích", desc: "Tổng hợp 3 lợi ích chính cho khách.", due:"4h",dayOffset:0} ] }, 'stage3': { objective: "Đề xuất phương án.", sla: "24 giờ", tasks: [ {id:'s3_t1',title:"Thiết kế kỹ thuật", desc: "Lên bản vẽ mô phỏng 3D.", due:"4h",dayOffset:0}, {id:'s3_t2',title:"Kiểm tra tồn kho", desc: "Check vật tư trong kho.", due:"1h",dayOffset:0}, {id:'s3_t3',title:"Báo giá chính thức", desc: "Gửi báo giá chi tiết cuối cùng.", due:"1 ngày",dayOffset:1} ] }, 'stage4': { objective: "Chốt đơn.", sla: "2 giờ", tasks: [ {id:'s4_t1',title:"Đàm phán", desc: "Đàm phán điều khoản thanh toán.", due:"Họp",dayOffset:0}, {id:'s4_t2',title:"Ký hợp đồng", desc: "Ký hợp đồng & nhận cọc.", due:"2h",dayOffset:0}, {id:'s4_t3',title:"Hỗ trợ thủ tục", desc: "Bàn giao hồ sơ cho Admin.", due:"1 ngày",dayOffset:1} ] }, 'stage5': { objective: "Bàn giao.", sla: "30 ngày", tasks: [ {id:'s5_t1',title:"Hướng dẫn", desc: "Hướng dẫn khách vận hành hệ thống.", due:"Tại chỗ",dayOffset:0}, {id:'s5_t2',title:"Hỗ trợ", desc: "Hỗ trợ kỹ thuật sau lắp đặt.", due:"Khi cần",dayOffset:1}, {id:'s5_t3',title:"Điểm kiểm tra", desc: "Kiểm tra hiệu suất sau 30 ngày.", due:"30 ngày",dayOffset:30} ] } };
+    
+    // NURTURING TITLES
+    const nurturingTasks = [ {id:'n_1', title:'Lần 1 (Sau 1 tháng)', content: 'Gửi thiệp cảm ơn & xin feedback.'}, {id:'n_2', title:'Lần 2 (Sau 2 tháng)', content: 'Gửi thông tin hướng dẫn bảo dưỡng.'}, {id:'n_3', title:'Lần 3 (Sau 3 tháng)', content: 'Kiểm tra (Check-in) hiệu suất hệ thống.'} ];
+    // LONG TERM TASKS FOR PENDING
+    const longTermTasks = [ {id:'lt_6m', title:'Sau 6 Tháng', content: 'Hỏi thăm tình hình, tặng voucher mua sắm / nâng cấp.'}, {id:'lt_1y', title:'Sau 1 Năm', content: 'Chúc mừng kỷ niệm 1 năm, mời kiểm tra bảo dưỡng hệ thống.'} ];
+
+    const saleKitItems = [
+        { title: 'Hồ sơ năng lực (Profile)', icon: 'fa-building', color: 'text-blue-400', desc: 'Giới thiệu công ty, tầm nhìn, dự án tiêu biểu.' },
+        { title: 'Brochure Sản phẩm', icon: 'fa-book-open', color: 'text-orange-400', desc: 'Tổng hợp các dòng tấm pin, inverter.' },
+        { title: 'Catalogue Kỹ thuật', icon: 'fa-microchip', color: 'text-indigo-400', desc: 'Thông số kỹ thuật chi tiết.' },
+        { title: 'Case Study: Nhà máy', icon: 'fa-industry', color: 'text-slate-300', desc: 'Hiệu quả thực tế dự án 1MW.' },
+        { title: 'Case Study: Biệt thự', icon: 'fa-house-chimney', color: 'text-emerald-400', desc: 'Dự án hộ gia đình tiêu biểu.' },
+        { title: 'Giải pháp Tài chính', icon: 'fa-hand-holding-dollar', color: 'text-green-500', desc: 'Các gói trả góp, vay ngân hàng.' },
+        { title: 'Bảng giá niêm yết', icon: 'fa-tag', color: 'text-red-400', desc: 'Cập nhật tháng 12/2025.' },
+        { title: 'Quy trình Bảo hành', icon: 'fa-shield-halved', color: 'text-purple-400', desc: 'Chính sách và quy trình xử lý sự cố.' }
+    ];
+
+    let customers = [
+        { id: 1, name: 'Anh Nam (Hải Châu)', phone: '0905111222', address: '12 Bạch Đằng, Hải Châu, ĐN', lat: 16.070, lng: 108.225, value: '85000000', status: 'stage1', date: getDate(0), type: 'Hộ gia đình', owner: 'Sale Team 1', dropReason: '', history: {}, customActivities: [{ id: 'act_demo1', title: 'Khảo sát mái nhà', date: new Date().toISOString(), done: false, type: 'onsite' }], inputHistory: [] },
+        { id: 2, name: 'Chị Lan (Sơn Trà)', phone: '0905333444', address: '45 Phạm Văn Đồng, Sơn Trà, ĐN', lat: 16.080, lng: 108.240, value: '120000000', status: 'chase1', date: getDate(-2), type: 'Hộ gia đình', owner: 'Admin User', dropReason: 'Cần tham khảo thêm gia đình', history: {'c1_d1': true}, customActivities: [{ id: 'act_demo2', title: 'Ký hợp đồng cọc', date: new Date().toISOString(), done: false, type: 'onsite' }], inputHistory: [] },
+        { id: 3, name: 'KSạn Mường Thanh (NHS)', phone: '0905555666', address: 'Võ Nguyên Giáp, NHS, ĐN', lat: 16.050, lng: 108.245, value: '450000000', status: 'stage2', date: getDate(-3), type: 'SMEs', owner: 'Sale Team 2', dropReason: '', history: {'s2_t1': true}, customActivities: [{ id: 'act_demo3', title: 'Gặp chủ đầu tư', date: new Date().toISOString(), done: false, type: 'onsite' }], inputHistory: [] },
+        { id: 4, name: 'Xưởng Gỗ (Cẩm Lệ)', phone: '0905777888', address: 'KCN Hoà Cầm, Cẩm Lệ, ĐN', lat: 16.010, lng: 108.190, value: '350000000', status: 'stage3', date: getDate(-5), type: 'Nhà máy', owner: 'Sale Team 1', dropReason: '', history: {'s3_t1': true, 's3_t2': true}, customActivities: [], inputHistory: [] },
+        { id: 5, name: 'Anh Hùng (Thanh Khê)', phone: '0905999000', address: '123 Điện Biên Phủ, Thanh Khê, ĐN', lat: 16.065, lng: 108.180, value: '65000000', status: 'chase2', date: getDate(-7), type: 'Hộ gia đình', owner: 'Admin User', dropReason: 'So sánh giá bên khác', history: {'c2_d0': true}, customActivities: [], inputHistory: [] },
+        { id: 6, name: 'Cty Dệt May (Liên Chiểu)', phone: '0905123123', address: 'KCN Hoà Khánh, Liên Chiểu, ĐN', lat: 16.090, lng: 108.150, value: '800000000', status: 'stage4', date: getDate(-10), type: 'Nhà máy', owner: 'Sale Team 2', dropReason: '', history: {}, customActivities: [], inputHistory: [] },
+        { id: 7, name: 'Biệt thự Cô Mai', phone: '0905456456', address: 'Euro Village, Sơn Trà, ĐN', lat: 16.059, lng: 108.236, value: '210000000', status: 'stage5', date: getDate(-15), type: 'Hộ gia đình', owner: 'Admin User', dropReason: '', history: {}, customActivities: [], inputHistory: [] },
+        { id: 8, name: 'Anh Tuấn (Ngũ Hành Sơn)', phone: '0905789789', address: 'Lê Văn Hiến, NHS, ĐN', lat: 16.020, lng: 108.250, value: '55000000', status: 'won', date: getDate(-30), type: 'Hộ gia đình', owner: 'Sale Team 1', dropReason: '', history: {}, customActivities: [], inputHistory: [] }
+    ];
+    let currentId = null, calendarMonth = new Date().getMonth(), calendarYear = new Date().getFullYear();
+
+    // MAP INIT VARS
+    let map = null;
+    let markers = [];
+    let routingControl = null;
+    let startMarker = null;
+
+    // CORRECTED OFFICE COORDS (Updated to 159 NHS)
+    const DEFAULT_OFFICE_LAT = 16.04089236900611;
+    const DEFAULT_OFFICE_LNG = 108.24194835757065;
+    let currentStartLat = DEFAULT_OFFICE_LAT;
+    let currentStartLng = DEFAULT_OFFICE_LNG;
+
+
+    function init() { 
+        const stored = localStorage.getItem('sundn_crm_final_v28_routing_machine');
+        if(stored) customers = JSON.parse(stored);
+        renderKanban(); renderActivityBoard(); renderCalendar(); renderSaleKit(); renderList();
+    }
+
+    function switchTab(tabId) {
+        ['pipeline', 'activities', 'list', 'calendar', 'salekit', 'map'].forEach(t => { 
+            document.getElementById(`view-${t}`).classList.add('hidden'); 
+            document.getElementById(`view-${t}`).classList.remove('flex'); 
+            document.getElementById(`tab-${t}`).className = "nav-pill-inactive px-6 py-2 rounded-full text-sm transition flex items-center gap-2 relative"; 
+        });
+        document.getElementById(`view-${tabId}`).classList.remove('hidden'); 
+        document.getElementById(`view-${tabId}`).classList.add('flex'); 
+        document.getElementById(`tab-${tabId}`).className = "nav-pill-active px-6 py-2 rounded-full text-sm transition flex items-center gap-2 relative";
+        
+        if(tabId === 'calendar') renderCalendar(); 
+        if(tabId === 'activities') renderActivityBoard(); 
+        if(tabId === 'list') renderList();
+        if(tabId === 'map') renderMap(); // INIT MAP IF SELECTED
+    }
+
+    function formatCurrency(val) {
+        if(!val) return '0 đ';
+        let num = typeof val === 'string' ? parseInt(val.replace(/,/g, '')) : val;
+        if(isNaN(num)) return '0 đ';
+        return num.toLocaleString('vi-VN') + ' đ';
+    }
+
+    function renderSaleKit() {
+        const grid = document.getElementById('saleKitGrid');
+        grid.innerHTML = saleKitItems.map(item => `
+            <div class="kit-card rounded-xl p-6 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4 shadow-lg border border-white/10 group-hover:scale-110 transition">
+                    <i class="fa-solid ${item.icon} text-2xl ${item.color}"></i>
+                </div>
+                <h3 class="font-bold text-white text-lg mb-2">${item.title}</h3>
+                <p class="text-xs text-slate-400 mb-4">${item.desc}</p>
+                <button class="mt-auto px-4 py-2 bg-white/10 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition w-full flex items-center justify-center gap-2 border border-white/10">
+                    <i class="fa-solid fa-download"></i> Tải PDF
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function renderActivityBoard() {
+        const board = document.getElementById('activityBoard'); board.innerHTML = '';
+        const buckets = { 'overdue': { title: 'Quá hạn', class: 'header-red', list: [] }, 'today': { title: 'Đến hạn hôm nay', class: 'header-emerald', list: [] }, 'week': { title: 'Đến hạn tuần này', class: 'header-blue', list: [] }, 'next_week': { title: 'Đến hạn tuần sau', class: 'header-indigo', list: [] } };
+        const now = new Date(); now.setHours(0,0,0,0); const endOfWeek = new Date(now); endOfWeek.setDate(now.getDate() + (7 - now.getDay())); const endOfNextWeek = new Date(endOfWeek); endOfNextWeek.setDate(endOfWeek.getDate() + 7);
+        customers.filter(c => c.status !== 'archived' && c.status !== 'won').forEach(c => {
+            const check = (t, offset) => { const d = new Date(c.date); d.setDate(d.getDate() + offset); d.setHours(0,0,0,0); const isDone = (c.history && c.history[t.id]); if (!isDone) { const taskData = { ...t, date: d, displayTime: d.toLocaleDateString('vi-VN'), customerName: c.name, customerId: c.id, isCustom: false }; addToBucket(taskData, d, now, endOfWeek, endOfNextWeek, buckets); } };
+            if(chaseScripts[c.status]) chaseScripts[c.status].forEach(t => check(t, t.day)); else if(sops[c.status]) sops[c.status].tasks.forEach(t => check(t, t.dayOffset));
+            if(c.customActivities) { c.customActivities.forEach(act => { const d = new Date(act.date); const dCheck = new Date(act.date); dCheck.setHours(0,0,0,0); if (!act.done) { const timeStr = d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}); const dateStr = d.toLocaleDateString('vi-VN'); const taskData = { title: act.title, date: dCheck, displayTime: `${timeStr} ${dateStr}`, customerName: c.name, customerId: c.id, isCustom: true, type: act.type }; addToBucket(taskData, dCheck, now, endOfWeek, endOfNextWeek, buckets); } }); }
+        });
+        let totalPending = 0; Object.keys(buckets).forEach(k => { totalPending += buckets[k].list.length; }); const tabBadge = document.getElementById('tabActivityBadge'); if(totalPending > 0) { tabBadge.classList.remove('hidden'); tabBadge.innerText = totalPending > 99 ? '99+' : totalPending; } else { tabBadge.classList.add('hidden'); }
+        Object.keys(buckets).forEach(k => {
+            const bucket = buckets[k];
+            board.innerHTML += `<div class="w-[300px] flex-shrink-0 kanban-col-wrapper"><div class="kanban-col-header ${bucket.class}"><div class="flex justify-between items-center mb-1"><span class="font-bold text-white text-xs uppercase tracking-wider">${bucket.title}</span><span class="bg-black/20 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">${bucket.list.length}</span></div></div><div class="flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar">${bucket.list.map(t => `<div onclick="openModal(${t.customerId})" class="task-card p-3 rounded-lg shadow-lg cursor-pointer hover:bg-slate-700 transition ${t.type === 'onsite' ? 'border-l-pink-500' : ''}"><div class="text-[10px] ${t.type === 'onsite' ? 'text-pink-300' : 'text-orange-300'} font-bold uppercase mb-1 flex justify-between"><span>${t.displayTime}</span>${t.type === 'onsite' ? '<i class="fa-solid fa-thumbtack"></i>' : ''}</div><div class="font-bold text-white text-sm mb-1">${t.title}</div><div class="text-xs text-slate-300"><i class="fa-solid fa-user text-[10px] mr-1"></i> ${t.customerName}</div></div>`).join('')}</div></div>`;
+        });
+    }
+    function addToBucket(taskData, d, now, endOfWeek, endOfNextWeek, buckets) { if (d < now) buckets['overdue'].list.push(taskData); else if (d.getTime() === now.getTime()) buckets['today'].list.push(taskData); else if (d <= endOfWeek) buckets['week'].list.push(taskData); else if (d <= endOfNextWeek) buckets['next_week'].list.push(taskData); }
+    function getPendingTaskCount(c) { let count = 0; if (chaseScripts[c.status]) chaseScripts[c.status].forEach(t => { if (!c.history[t.id]) count++; }); else if (sops[c.status]) sops[c.status].tasks.forEach(t => { if (!c.history[t.id]) count++; }); else if (c.status === 'nurturing') nurturingTasks.forEach(t => { if (!c.history[t.id]) count++; }); if (c.customActivities) c.customActivities.forEach(a => { if (!a.done) count++; }); return count; }
+
+    function renderKanban() {
+        const board = document.getElementById('kanbanBoard'); const select = document.getElementById('cStatus'); board.innerHTML = ''; select.innerHTML = ''; 
+        Object.keys(stages).forEach(key => {
+            select.innerHTML += `<option value="${key}" class="bg-slate-900">${stages[key].title}</option>`;
+            // HIDE PENDING FROM PIPELINE
+            if (key !== 'archived' && key !== 'won' && key !== 'pending') { 
+                const list = customers.filter(c => c.status === key);
+                let stageTotal = 0; list.forEach(c => { stageTotal += parseInt(String(c.value).replace(/,/g, '')) || 0; });
+                board.innerHTML += `<div class="w-[320px] flex-shrink-0 kanban-col-wrapper"><div class="kanban-col-header ${stages[key].headerClass}"><div class="flex justify-between items-center mb-1"><span class="font-bold text-white text-xs uppercase tracking-wider text-shadow">${stages[key].title}</span><span class="bg-black/20 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm border border-white/10">${list.length}</span></div><div class="text-[10px] font-bold text-white/90 bg-white/10 px-2 py-1 rounded inline-block border border-white/10">${formatCurrency(stageTotal)}</div></div><div class="flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar" ondrop="drop(event, '${key}')" ondragover="allowDrop(event)">${list.map(c => { 
+                    const pendingCount = getPendingTaskCount(c); 
+                    const badgeClass = pendingCount > 0 ? 'bg-red-500 text-white' : 'bg-slate-600 text-slate-300';
+                    const dateAdded = new Date(c.date).toLocaleDateString('vi-VN'); 
+                    return `<div class="task-card p-3 rounded-lg shadow-lg cursor-pointer transition group fade-in relative overflow-hidden" draggable="true" ondragstart="drag(event, ${c.id})" onclick="openModal(${c.id})"><div class="absolute top-2 right-2 ${badgeClass} text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-20">${pendingCount}</div><div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 to-indigo-500 opacity-90"></div><div class="pl-2"><div class="font-bold text-white text-sm drop-shadow-sm pr-6">${c.name}</div><div class="text-base text-orange-200 font-bold mt-1 tracking-wide">${formatCurrency(c.value)}</div><div class="text-[10px] text-slate-300 mt-2 flex items-center justify-between"><span><i class="fa-solid fa-user-tag"></i> ${c.owner || 'N/A'}</span><span class="opacity-70"><i class="fa-regular fa-calendar"></i> ${dateAdded}</span></div></div><div class="mt-3 pt-2 border-t border-white/10 flex justify-end"><button onclick="event.stopPropagation(); openQuickActivity(${c.id})" class="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-indigo-300 font-bold flex items-center gap-1 transition"><i class="fa-solid fa-plus"></i> Hoạt động</button></div></div>`}).join('')}</div></div>`;
+            }
+        });
+    }
+
+    // LIST RENDER
+    function renderList() {
+        const tbody = document.getElementById('listTableBody'); tbody.innerHTML = '';
+        const search = document.getElementById('listSearch').value.toLowerCase();
+        const filterStatus = document.getElementById('listFilterStatus').value;
+        const filterOwner = document.getElementById('listFilterOwner').value;
+        let list = customers.filter(c => {
+            const matchSearch = c.name.toLowerCase().includes(search) || c.phone.includes(search);
+            let matchStatus = true;
+            if (filterStatus === 'won') matchStatus = (c.status === 'won'); 
+            else if (filterStatus === 'lost') matchStatus = (c.status === 'archived');
+            else if (filterStatus === 'pending') matchStatus = (c.status === 'pending'); 
+            else if (filterStatus === 'process') matchStatus = (c.status !== 'won' && c.status !== 'archived' && c.status !== 'pending'); 
+            
+            let matchOwner = true; if (filterOwner !== 'all') matchOwner = (c.owner === filterOwner);
+            return matchSearch && matchStatus && matchOwner;
+        });
+        list.sort((a,b) => new Date(b.date) - new Date(a.date)); document.getElementById('listTotalCount').innerText = `Tổng: ${list.length} khách hàng`;
+        if(list.length === 0) { tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 italic">Không tìm thấy khách hàng nào.</td></tr>`; return; }
+        list.forEach(c => {
+            let statusHtml = ''; 
+            if (c.status === 'won') statusHtml = '<span class="bg-emerald-900/50 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded text-xs font-bold">Thành công</span>'; 
+            else if (c.status === 'archived') statusHtml = '<span class="bg-red-900/50 text-red-400 border border-red-500/30 px-2 py-1 rounded text-xs font-bold">Thất bại/Dừng</span>'; 
+            else if (c.status === 'pending') statusHtml = '<span class="bg-slate-700 text-slate-300 border border-slate-500/30 px-2 py-1 rounded text-xs font-bold">⏳ Tạm hoãn (Dài hạn)</span>';
+            else statusHtml = `<span class="bg-blue-900/50 text-blue-300 border border-blue-500/30 px-2 py-1 rounded text-xs">${stages[c.status].title}</span>`;
+            
+            // Check for onsite today activity
+            const hasOnsiteToday = c.customActivities && c.customActivities.some(a => !a.done && a.type === 'onsite' && new Date(a.date).toDateString() === new Date().toDateString());
+            const pinIcon = hasOnsiteToday ? '<i class="fa-solid fa-thumbtack text-pink-400 ml-2 animate-pulse"></i>' : '';
+
+            tbody.innerHTML += `<tr class="hover:bg-white/5 transition border-b border-white/5 backdrop-blur-[2px]"><td class="p-4 font-bold text-white text-shadow">${c.name}${pinIcon}<div class="text-[10px] text-slate-400 font-normal mt-0.5">${c.phone}</div></td><td class="p-4 text-xs text-slate-300">${c.address || '<i class="text-slate-500">Chưa có địa chỉ</i>'}</td><td class="p-4">${statusHtml}</td><td class="p-4 text-orange-300 font-mono text-xs font-bold text-shadow">${formatCurrency(c.value)}</td><td class="p-4 text-slate-300 text-xs">${c.owner || '-'}</td><td class="p-4 text-right"><button onclick="openModal(${c.id})" class="text-xs bg-white/10 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg shadow transition border border-white/10">Chi tiết</button></td></tr>`;
+        });
+    }
+
+    // MAP RENDERING (NO AUTO ROUTE INITIALLY)
+    function renderMap() {
+        const container = document.getElementById('mapListContainer');
+        container.innerHTML = '';
+        if (!map) {
+            map = L.map('leafletMap').setView([16.0544, 108.2022], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+        }
+        
+        // Clear old items
+        markers.forEach(m => map.removeLayer(m.marker));
+        markers = [];
+        if(startMarker) map.removeLayer(startMarker);
+        
+        // Remove routing control if exists (clear old lines)
+        if (routingControl) {
+            map.removeControl(routingControl);
+            routingControl = null;
+        }
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        let todayGroup = [];
+        
+        customers.forEach(c => {
+            if (c.customActivities) {
+                const onsiteToday = c.customActivities.find(a => !a.done && a.type === 'onsite' && new Date(a.date).toDateString() === today.toDateString());
+                if (onsiteToday) {
+                    const actDate = new Date(onsiteToday.date);
+                    const timeStr = actDate.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+                    c.displayTime = timeStr;
+                    c.taskName = onsiteToday.title; 
+                    todayGroup.push(c);
+                    if (c.lat && c.lng) {
+                        const marker = L.marker([c.lat, c.lng])
+                            .addTo(map)
+                            .bindPopup(`<b>${c.name}</b><br>${c.address || ''}<br><b style="color:#fb923c">Việc: ${c.taskName}</b><br><span class="text-pink-400 font-bold">Hẹn: ${timeStr}</span>`);
+                        markers.push({ id: c.id, marker: marker });
+                    }
+                }
+            }
+        });
+
+        // DRAW START POINT
+        startMarker = L.marker([currentStartLat, currentStartLng], {
+             icon: L.divIcon({
+                 className: 'bg-transparent',
+                 html: '<div style="background:#4f46e5; width:24px; height:24px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px rgba(0,0,0,0.5)"><i class="fa-solid fa-house text-[10px] text-white"></i></div>'
+             })
+        }).addTo(map).bindPopup("<b>Điểm xuất phát</b><br>Văn phòng SUNDN");
+
+        const renderItem = (c) => `
+            <div class="p-3 bg-pink-900/20 rounded-xl border border-pink-500/30 hover:bg-pink-900/40 transition group cursor-pointer mb-2" onclick="focusMap(${c.id})">
+                <div class="flex justify-between items-start mb-1">
+                    <div class="font-bold text-white text-sm">${c.name} <i class="fa-solid fa-thumbtack text-pink-400"></i></div>
+                    <span class="text-[10px] bg-pink-600 text-white px-1.5 py-0.5 rounded font-bold border border-white/20">${c.displayTime}</span>
+                </div>
+                <div class="text-xs text-orange-400 font-bold mb-1 uppercase"><i class="fa-solid fa-clipboard-check mr-1"></i> ${c.taskName}</div>
+                <div class="text-xs text-slate-300 mb-2 truncate"><i class="fa-solid fa-map-pin mr-1"></i> ${c.address || 'Chưa có địa chỉ'}</div>
+                <div class="flex gap-2">
+                    <a href="http://google.com/maps/dir/?api=1&destination=${encodeURIComponent(c.address)}" target="_blank" onclick="event.stopPropagation()" class="flex-1 text-center py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold rounded shadow transition">
+                        <i class="fa-solid fa-diamond-turn-right"></i> Chỉ đường
+                    </a>
+                </div>
+            </div>`;
+
+        if (todayGroup.length > 0) {
+            container.innerHTML += `<div class="font-bold text-pink-400 text-xs uppercase mb-2 mt-2">GẶP MẶT HÔM NAY (${todayGroup.length})</div>`;
+            todayGroup.forEach(c => container.innerHTML += renderItem(c));
+        } else {
+             container.innerHTML += `<div class="text-xs text-slate-500 italic mb-4">Không có lịch gặp mặt hôm nay.</div>`;
+        }
+    }
+    
+    // DISTANCE HELPER
+    function getDistance(lat1, lon1, lat2, lon2) {
+        return Math.sqrt(Math.pow(lat1-lat2, 2) + Math.pow(lon1-lon2, 2));
+    }
+
+    // NEAREST NEIGHBOR SORT
+    function sortPointsByDistance(startLat, startLng, points) {
+        let sorted = [];
+        let currentLat = startLat;
+        let currentLng = startLng;
+        let remaining = [...points];
+
+        while(remaining.length > 0) {
+            let nearestIdx = -1;
+            let minDist = Infinity;
+
+            remaining.forEach((p, index) => {
+                let d = getDistance(currentLat, currentLng, p.lat, p.lng);
+                if (d < minDist) {
+                    minDist = d;
+                    nearestIdx = index;
+                }
+            });
+
+            if (nearestIdx > -1) {
+                let nextPoint = remaining[nearestIdx];
+                sorted.push(nextPoint);
+                currentLat = nextPoint.lat;
+                currentLng = nextPoint.lng;
+                remaining.splice(nearestIdx, 1);
+            }
+        }
+        return sorted;
+    }
+
+    // NEW FUNCTION: Calculate route logic (WITH REAL ROAD ROUTING)
+    async function calculateRoute() {
+        const startAddr = document.getElementById('routeStart').value;
+        const defaultAddr = "Văn phòng SUNDN (159 Ngũ Hành Sơn, P. Mỹ An, Q. Ngũ Hành Sơn, Tp. Đà Nẵng)";
+        
+        let needRefresh = false;
+
+        // 1. UPDATE START POINT
+        if (startAddr.includes("Văn phòng SUNDN")) {
+            currentStartLat = DEFAULT_OFFICE_LAT;
+            currentStartLng = DEFAULT_OFFICE_LNG;
+            needRefresh = true;
+        } else {
+             try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(startAddr)}`);
+                const geo = await res.json();
+                if(geo.length > 0) {
+                    currentStartLat = parseFloat(geo[0].lat);
+                    currentStartLng = parseFloat(geo[0].lon);
+                    needRefresh = true;
+                } else {
+                    showToast("Không tìm thấy địa chỉ này!", "warning");
+                }
+            } catch (e) { showToast("Lỗi định vị!", "error"); }
+        }
+
+        if(needRefresh) {
+            // RE-RENDER MAP TO CLEAR OLD
+            renderMap();
+            
+            // 2. GET POINTS & OPTIMIZE ORDER
+            const today = new Date(); today.setHours(0,0,0,0);
+            let rawPoints = [];
+            customers.forEach(c => {
+                if (c.customActivities && c.customActivities.some(a => !a.done && a.type === 'onsite' && new Date(a.date).toDateString() === today.toDateString())) {
+                    if(c.lat && c.lng) rawPoints.push(c);
+                }
+            });
+
+            if (rawPoints.length > 0) {
+                const optimizedPoints = sortPointsByDistance(currentStartLat, currentStartLng, rawPoints);
+                
+                // 3. DRAW REAL ROAD LINE (LEAFLET ROUTING MACHINE)
+                const waypoints = [
+                    L.latLng(currentStartLat, currentStartLng),
+                    ...optimizedPoints.map(c => L.latLng(c.lat, c.lng))
+                ];
+
+                routingControl = L.Routing.control({
+                    waypoints: waypoints,
+                    routeWhileDragging: false,
+                    show: false, // Hide the text instructions box
+                    addWaypoints: false, // Disable dragging to add points
+                    lineOptions: {
+                        styles: [{color: 'red', opacity: 0.8, weight: 5}]
+                    },
+                    createMarker: function() { return null; } // Don't create extra markers, we have our own
+                }).addTo(map);
+
+                // 4. RE-RENDER LIST IN ORDER
+                const container = document.getElementById('mapListContainer');
+                container.innerHTML = `<div class="font-bold text-pink-400 text-xs uppercase mb-2 mt-2">LỘ TRÌNH TỐI ƯU (${optimizedPoints.length})</div>`;
+                
+                const renderItem = (c, index) => `
+                    <div class="p-3 bg-pink-900/20 rounded-xl border border-pink-500/30 hover:bg-pink-900/40 transition group cursor-pointer mb-2 relative" onclick="focusMap(${c.id})">
+                        <div class="absolute -left-2 -top-2 w-5 h-5 bg-red-600 rounded-full text-white text-[10px] font-bold flex items-center justify-center border border-white shadow">${index+1}</div>
+                        <div class="flex justify-between items-start mb-1 pl-2">
+                            <div class="font-bold text-white text-sm">${c.name}</div>
+                            <span class="text-[10px] bg-pink-600 text-white px-1.5 py-0.5 rounded font-bold border border-white/20">${c.displayTime}</span>
+                        </div>
+                        <div class="text-xs text-orange-400 font-bold mb-1 uppercase pl-2"><i class="fa-solid fa-clipboard-check mr-1"></i> ${c.taskName}</div>
+                        <div class="text-xs text-slate-300 mb-2 truncate pl-2"><i class="fa-solid fa-map-pin mr-1"></i> ${c.address}</div>
+                        <div class="flex gap-2 pl-2">
+                            <a href="http://google.com/maps/dir/?api=1&destination=${encodeURIComponent(c.address)}" target="_blank" onclick="event.stopPropagation()" class="flex-1 text-center py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold rounded shadow transition">
+                                <i class="fa-solid fa-diamond-turn-right"></i> Chỉ đường
+                            </a>
+                        </div>
+                    </div>`;
+                
+                optimizedPoints.forEach((c, idx) => container.innerHTML += renderItem(c, idx));
+                showToast(`Đã tối ưu lộ trình: ${optimizedPoints.length} điểm đến`, "success");
+            } else {
+                showToast("Không có điểm đến để tạo lộ trình!", "warning");
+            }
+        }
+    }
+
+    // OPEN GOOGLE MAPS WITH OPTIMIZED ORDER
+    function openGoogleMapsRoute() {
+        const today = new Date(); today.setHours(0,0,0,0);
+        let rawPoints = [];
+        customers.forEach(c => {
+            if (c.customActivities && c.customActivities.some(a => !a.done && a.type === 'onsite' && new Date(a.date).toDateString() === today.toDateString())) {
+                if(c.address && c.lat && c.lng) rawPoints.push(c);
+            }
+        });
+
+        if(rawPoints.length === 0) { showToast("Không có điểm đến hôm nay!", "warning"); return; }
+        
+        // Optimize order before sending to Google Maps
+        const optimizedPoints = sortPointsByDistance(currentStartLat, currentStartLng, rawPoints);
+        
+        let destinations = optimizedPoints.map(c => encodeURIComponent(c.address));
+        const origin = encodeURIComponent(document.getElementById('routeStart').value);
+        const waypoints = destinations.join('|'); // Google Maps uses pipe for waypoints
+        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destinations[destinations.length-1]}&waypoints=${waypoints}`;
+        window.open(url, '_blank');
+    }
+
+    function focusMap(cid) {
+        const item = markers.find(m => m.id === cid);
+        if (item) { map.flyTo(item.marker.getLatLng(), 15); item.marker.openPopup(); }
+        else { 
+            const c = customers.find(x => x.id === cid);
+            if(c && c.address) window.open(`http://google.com/maps/dir/?api=1&destination=${encodeURIComponent(c.address)}`, '_blank');
+            else alert("Khách hàng này chưa có địa chỉ hoặc tọa độ.");
+        }
+    }
+
+    function openQuickActivity(cid) {
+        document.getElementById('qaCustomerId').value = cid; 
+        document.getElementById('qaTitle').value = ''; 
+        document.getElementById('qaType').value = 'online'; // Default type
+        const now = new Date(); const offset = now.getTimezoneOffset() * 60000; const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16); 
+        document.getElementById('qaDate').value = localISOTime; 
+        document.getElementById('quickActivityModal').classList.remove('hidden'); 
+        document.getElementById('quickActivityModal').classList.add('flex');
+    }
+    function closeQuickActivity() { document.getElementById('quickActivityModal').classList.add('hidden'); document.getElementById('quickActivityModal').classList.remove('flex'); }
+    
+    function saveQuickActivity() { 
+        const cid = Number(document.getElementById('qaCustomerId').value); 
+        const title = document.getElementById('qaTitle').value; 
+        const date = document.getElementById('qaDate').value; 
+        const type = document.getElementById('qaType').value; 
+
+        if(!title || !date) { alert("Vui lòng nhập đủ thông tin"); return; } 
+        const idx = customers.findIndex(c => c.id === cid); 
+        if(idx > -1) { 
+            if(!customers[idx].customActivities) customers[idx].customActivities = []; 
+            customers[idx].customActivities.push({ id: 'act_' + Date.now(), title: title, date: date, done: false, type: type }); 
+            saveSilent(); 
+            closeQuickActivity(); 
+            showToast("Đã lên lịch hoạt động!", "success"); 
+        } 
+    }
+    
+    function renderCalendar() {
+        const grid = document.getElementById('calendarGrid'); grid.innerHTML = ''; const firstDay = new Date(calendarYear, calendarMonth, 1); const lastDay = new Date(calendarYear, calendarMonth + 1, 0); document.getElementById('calendarMonthTitle').innerText = `Tháng ${calendarMonth + 1}, ${calendarYear}`; let startDay = firstDay.getDay(); let emptyCells = startDay === 0 ? 6 : startDay - 1; 
+        for (let i = 0; i < emptyCells; i++) grid.innerHTML += `<div class="calendar-cell bg-white/5 backdrop-blur-[2px]"></div>`;
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const currentDate = new Date(calendarYear, calendarMonth, day); currentDate.setHours(0,0,0,0); let dayTasksHTML = '';
+            customers.filter(c => c.status !== 'archived' && c.status !== 'won').forEach(c => {
+                const checkTask = (t, offset) => { const d = new Date(c.date); d.setDate(d.getDate() + offset); d.setHours(0,0,0,0); const isDone = (c.history && c.history[t.id]); if (d.getTime() === currentDate.getTime() && !isDone) { dayTasksHTML += `<div class="text-[9px] bg-indigo-600/90 text-white px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer hover:bg-indigo-500 shadow-sm" onclick="event.stopPropagation(); openModal(${c.id})">${t.title}</div>`; } };
+                if (chaseScripts[c.status]) chaseScripts[c.status].forEach(t => checkTask(t, t.day)); else if (sops[c.status]) sops[c.status].tasks.forEach(t => checkTask(t, t.dayOffset));
+                if(c.customActivities) { c.customActivities.forEach(act => { const d = new Date(act.date); d.setHours(0,0,0,0); if(d.getTime() === currentDate.getTime() && !act.done) { const timeStr = new Date(act.date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}); dayTasksHTML += `<div class="text-[9px] ${act.type==='onsite'?'bg-pink-600':'bg-indigo-400'} text-white px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer shadow-sm" onclick="event.stopPropagation(); openModal(${c.id})"><b>${timeStr}</b> ${act.title}</div>`; } }); }
+            });
+            const isToday = new Date().setHours(0,0,0,0) === currentDate.getTime(); grid.innerHTML += `<div class="calendar-cell p-1 ${isToday ? 'bg-indigo-900/40 ring-1 ring-indigo-400 inset-0' : ''}"><div class="text-right text-xs font-bold ${isToday ? 'text-indigo-300' : 'text-slate-200'} mb-1 text-shadow">${day}</div><div class="overflow-y-auto max-h-[70px] space-y-0.5 custom-scrollbar">${dayTasksHTML}</div></div>`;
+        }
+    }
+    function changeMonth(step) { calendarMonth += step; if(calendarMonth > 11) { calendarMonth = 0; calendarYear++; } else if(calendarMonth < 0) { calendarMonth = 11; calendarYear--; } renderCalendar(); }
+
+    function openModal(id) {
+        const modal = document.getElementById('customerModal'); 
+        const modalContent = document.getElementById('modalContent');
+        const profileCol = document.getElementById('profileColumn'); 
+        const midCol = document.getElementById('middleColumn'); 
+        const rightCol = document.getElementById('rightColumn'); 
+        const statusWrapper = document.getElementById('statusWrapper'); 
+        const addBtns = document.getElementById('addModeButtons'); 
+        const dropReasonArea = document.getElementById('dropReasonArea'); 
+        
+        modal.style.display = 'flex';
+        
+        // RESET AI VIEW WHEN OPENING MODAL
+        document.getElementById('aiResultArea').classList.add('hidden');
+        document.getElementById('btnAnalyze').innerHTML = '<i class="fa-solid fa-microchip group-hover:animate-pulse"></i> PHÂN TÍCH CHUYÊN SÂU & ĐỀ XUẤT KỊCH BẢN';
+        document.getElementById('btnAnalyze').classList.remove('opacity-75', 'cursor-wait');
+
+        if(id) { 
+            // VIEW/EDIT MODE - FULL DASHBOARD
+            currentId = Number(id); 
+            const c = customers.find(x => x.id === currentId); 
+            
+            if (c) {
+                document.getElementById('cName').value = c.name; 
+                document.getElementById('cPhone').value = c.phone || ''; 
+                document.getElementById('cAddress').value = c.address || ''; // Populate Address
+                document.getElementById('cType').value = c.type; 
+                document.getElementById('cValue').value = c.value; 
+                document.getElementById('cStatus').value = c.status; 
+                document.getElementById('cDate').value = c.date; 
+                document.getElementById('cOwner').value = c.owner || 'Admin User'; 
+                document.getElementById('aiInputNote').value = ''; 
+                renderInputHistory(c);
+                
+                addBtns.classList.add('hidden'); 
+                statusWrapper.classList.remove('hidden'); 
+                
+                // RESTORE DASHBOARD LAYOUT
+                profileCol.className = "w-1/5 bg-black/30 p-6 border-r border-white/10 overflow-y-auto flex flex-col transition-all duration-300"; 
+                midCol.classList.remove('hidden'); 
+                rightCol.classList.remove('hidden'); 
+                modalContent.className = "glass-widget rounded-2xl shadow-2xl w-[95%] max-w-[1400px] h-[95vh] flex overflow-hidden border border-white/20 relative transition-all duration-300 bg-slate-900/98";
+                
+                if(c.status === 'archived' && c.dropReason) { dropReasonArea.classList.remove('hidden'); document.getElementById('dropReasonText').innerText = c.dropReason; } else { dropReasonArea.classList.add('hidden'); }
+                switchViewMode(); 
+            } else {
+                console.error("Customer not found for ID:", currentId);
+            }
+        } else { 
+            // ADD LEAD MODE - CLEAN FORM
+            currentId = null; 
+            document.getElementById('cName').value = ''; 
+            document.getElementById('cPhone').value = ''; 
+            document.getElementById('cAddress').value = ''; // Reset Address
+            document.getElementById('cType').value = 'Hộ gia đình'; 
+            document.getElementById('cValue').value = ''; 
+            document.getElementById('cStatus').value = 'stage1'; 
+            document.getElementById('cDate').valueAsDate = new Date(); 
+            document.getElementById('cOwner').value = 'Admin User'; 
+            
+            addBtns.classList.remove('hidden'); 
+            statusWrapper.classList.add('hidden'); 
+            dropReasonArea.classList.add('hidden'); 
+            
+            // CLEAN FORM LAYOUT - ONLY PROFILE
+            profileCol.className = "w-full bg-slate-900 p-8 overflow-y-auto flex flex-col h-full"; 
+            midCol.classList.add('hidden'); 
+            rightCol.classList.add('hidden'); 
+            
+            // Resize modal for Add Form
+            modalContent.className = "glass-widget rounded-2xl shadow-2xl w-[500px] flex overflow-hidden border border-white/20 relative transition-all duration-300 bg-slate-900/98 full-center-modal";
+        }
+    }
+    
+    function closeModal() { document.getElementById('customerModal').style.display = 'none'; init(); }
+    
+    // ASYNC SAVE FOR GEOCODING (Fix Map Issue)
+    async function saveCustomer() { 
+        let saveId = currentId;
+        if (saveId === null) saveId = Date.now();
+
+        const nameVal = document.getElementById('cName').value;
+        const phoneVal = document.getElementById('cPhone').value;
+        const addrVal = document.getElementById('cAddress').value; // Capture Address
+        const typeVal = document.getElementById('cType').value;
+        const valueVal = document.getElementById('cValue').value;
+        const statusVal = document.getElementById('cStatus').value;
+        const dateVal = document.getElementById('cDate').value;
+        const ownerVal = document.getElementById('cOwner').value;
+
+        const idx = customers.findIndex(x => x.id === Number(saveId));
+        
+        let newHistory = {}, newCustomActivities = [], newDropReason = '', newInputHistory = [];
+        let newLat = null, newLng = null;
+
+        if (idx > -1) {
+            newHistory = customers[idx].history; 
+            newCustomActivities = customers[idx].customActivities;
+            newDropReason = customers[idx].dropReason;
+            newInputHistory = customers[idx].inputHistory;
+            newLat = customers[idx].lat;
+            newLng = customers[idx].lng;
+        }
+
+        // AUTO GEOCODING LOGIC (Using OSM Nominatim)
+        if (addrVal && (idx === -1 || addrVal !== customers[idx].address)) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addrVal)}`);
+                const geo = await res.json();
+                if(geo.length > 0) {
+                    newLat = parseFloat(geo[0].lat);
+                    newLng = parseFloat(geo[0].lon);
+                }
+            } catch (e) { console.error("Geocoding failed", e); }
+        }
+
+        const data = { 
+            id: Number(saveId),
+            name: nameVal, 
+            phone: phoneVal, 
+            address: addrVal,
+            lat: newLat,
+            lng: newLng,
+            type: typeVal, 
+            value: valueVal, 
+            status: statusVal, 
+            date: dateVal, 
+            owner: ownerVal, 
+            history: newHistory, 
+            customActivities: newCustomActivities, 
+            dropReason: newDropReason,
+            inputHistory: newInputHistory
+        }; 
+        
+        if(idx > -1) {
+            customers[idx] = data; 
+        } else {
+            customers.push(data);
+        }
+        
+        localStorage.setItem('sundn_crm_final_v28_routing_machine', JSON.stringify(customers)); 
+        closeModal(); 
+        showToast("Đã lưu thông tin thành công!", "success");
+    }
+
+    function saveSilent() { localStorage.setItem('sundn_crm_final_v28_routing_machine', JSON.stringify(customers)); renderKanban(); renderActivityBoard(); renderList(); renderMap(); }
+    
+    function saveAiInput() { 
+        const val = document.getElementById('aiInputNote').value;
+        if(!val.trim()) return;
+        const idx = customers.findIndex(x => x.id === currentId); 
+        if(idx > -1) { 
+            if(!customers[idx].inputHistory) customers[idx].inputHistory = [];
+            customers[idx].inputHistory.unshift({ text: val, date: new Date().toISOString() });
+            document.getElementById('aiInputNote').value = '';
+            renderInputHistory(customers[idx]);
+            saveSilent(); 
+            closeModal();
+            showToast("Đã lưu Input & Đóng cửa sổ!", "success"); 
+        } 
+    }
+
+    function renderInputHistory(c) {
+        const log = document.getElementById('inputHistoryLog');
+        if(!c.inputHistory || c.inputHistory.length === 0) { log.innerHTML = '<div class="text-[10px] text-slate-500 italic">Chưa có lịch sử input.</div>'; return; }
+        log.innerHTML = c.inputHistory.map(h => `<div class="text-[10px] text-slate-300 border-b border-white/5 pb-1 mb-1"><span class="text-orange-400 font-bold">${new Date(h.date).toLocaleDateString('vi-VN')}</span>: ${h.text}</div>`).join('');
+    }
+    
+    function manualMoveStage(targetStage, isRefusal = false) {
+        const c = customers.find(x => x.id === currentId);
+        
+        if(targetStage === 'won') {
+            if(confirm("XÁC NHẬN: Hoàn thành dự án và đóng hồ sơ (WON)?")) {
+                c.status = 'won'; saveSilent(); closeModal(); showToast("CHÚC MỪNG! DỰ ÁN THÀNH CÔNG!", "success");
+            }
+            return;
+        }
+        
+        if(targetStage === 'archived') {
+            const reason = prompt("Lý do dừng chăm sóc:", "Khách không có nhu cầu nữa");
+            if(reason) {
+                c.status = 'archived'; c.dropReason = reason; saveSilent(); closeModal(); showToast("Đã dừng chăm sóc", "warning");
+            }
+            return;
+        }
+
+        if (targetStage === 'pending') {
+            c.status = 'pending';
+            if (!c.dropReason) c.dropReason = "Đã hoàn thành Nurturing - Chờ dài hạn";
+            saveSilent(); closeModal(); showToast("Đã chuyển sang Tạm hoãn (Dài hạn)", "success");
+            return;
+        }
+
+        // Logic Refusal (Không đồng ý)
+        if (isRefusal) {
+             const dropReason = prompt("Lý do khách chưa đồng ý (để lưu vào hồ sơ):", "Cần thêm thời gian / Giá chưa tốt");
+             if (dropReason) {
+                 // Ở đây targetStage sẽ là 'chase1' hoặc 'chase2'
+                 c.status = targetStage; 
+                 c.dropReason = dropReason; 
+                 document.getElementById('cStatus').value = targetStage; 
+                 saveSilent(); 
+                 closeModal(); 
+                 showToast(`Đã chuyển sang: ${stages[targetStage].title}`, "warning"); 
+             }
+        } else {
+             // Logic Đồng ý (Next Stage)
+             c.status = targetStage; 
+             document.getElementById('cStatus').value = targetStage;
+             saveSilent(); 
+             closeModal();
+             showToast(`Đã chuyển sang: ${stages[targetStage].title}`, "success"); 
+        }
+    }
+
+    function switchViewMode() {
+        if(currentId === null) return;
+        const c = customers.find(x => x.id === currentId);
+        let status = c.status; 
+        
+        const optionExists = [...document.getElementById('cStatus').options].some(o => o.value === status);
+        if(optionExists) document.getElementById('cStatus').value = status;
+
+        ['ai', 'nurturing', 'sop', 'pending'].forEach(v => document.getElementById(`${v}ModeView`).classList.remove('flex')); ['ai', 'nurturing', 'sop', 'pending'].forEach(v => document.getElementById(`${v}ModeView`).classList.add('hidden')); document.getElementById('rightColumn').style.display = 'flex'; document.getElementById('dropReasonReview').classList.add('hidden'); document.getElementById('wonDealReview').classList.add('hidden');
+        
+        if(status === 'archived') { document.getElementById('dropReasonReview').classList.remove('hidden'); document.getElementById('dropReasonReviewText').innerText = c.dropReason || "Không có lý do."; renderTimeline('all_history_view', true); return; }
+        if(status === 'won') { document.getElementById('wonDealReview').classList.remove('hidden'); renderTimeline('all_history_view', true); return; }
+        
+        if(status === 'pending') {
+             document.getElementById('pendingModeView').classList.remove('hidden'); 
+             document.getElementById('pendingModeView').classList.add('flex'); 
+             document.getElementById('rightColumn').style.display = 'none'; 
+             renderPendingChecklist(c);
+             return;
+        }
+
+        if(status.startsWith('chase')) { 
+            document.getElementById('aiModeView').classList.remove('hidden'); document.getElementById('aiModeView').classList.add('flex'); renderTimeline(status); 
+        } 
+        else if(status === 'nurturing') { 
+            document.getElementById('nurturingModeView').classList.remove('hidden'); document.getElementById('nurturingModeView').classList.add('flex'); document.getElementById('rightColumn').style.display = 'none'; renderNurturingChecklist(c); 
+        } 
+        else { 
+            document.getElementById('sopModeView').classList.remove('hidden'); document.getElementById('sopModeView').classList.add('flex'); document.getElementById('rightColumn').style.display = 'none'; 
+            if(sops[status]) { 
+                document.getElementById('sopObjective').innerText = "Mục tiêu: " + sops[status].objective; document.getElementById('sopSLA').innerText = "Thời hạn (SLA): " + sops[status].sla; renderSOPChecklist(sops[status].tasks, c); 
+            } 
+        }
+    }
+
+    function renderTimeline(status, isFullHistory = false) {
+         const content = document.getElementById('timelineContent'); content.innerHTML = '<div class="absolute left-3 top-2 bottom-0 w-0.5 bg-white/20"></div>'; const c = customers.find(x => x.id === currentId); let tasksToRender = [];
+         if(isFullHistory) { Object.keys(chaseScripts).forEach(k => chaseScripts[k].forEach(t => { if(c.history[t.id]) tasksToRender.push(t); })); if(tasksToRender.length === 0) content.innerHTML += '<div class="text-slate-400 italic pl-8">Không có lịch sử tương tác.</div>'; } else { tasksToRender = chaseScripts[status] || []; }
+         tasksToRender.forEach(t => {
+             const isDone = c.history && c.history[t.id]; const btnClass = isDone ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white font-bold' : 'bg-transparent hover:bg-white/10 border-white/20 text-slate-300 hover:text-white'; const btnText = isDone ? '<i class="fa-solid fa-check-double mr-1"></i> ĐÃ HOÀN THÀNH' : '<i class="fa-regular fa-square mr-1"></i> Đánh dấu đã làm';
+             const actionArea = isFullHistory ? `<div class="text-[10px] text-emerald-400 italic"><i class="fa-solid fa-check"></i> Đã hoàn thành</div>` : `<button onclick="toggleHistory('${t.id}')" class="w-full text-xs border py-2 rounded-lg transition shadow-lg ${btnClass}">${btnText}</button>`;
+             content.innerHTML += `<div class="relative pl-10 mb-6 group"><div class="absolute left-0 top-0 w-7 h-7 rounded-full border-2 ${isDone?'border-emerald-500 text-emerald-500 bg-emerald-500/20':'border-slate-400 text-slate-400 bg-slate-800'} flex items-center justify-center transition group-hover:border-indigo-500 z-10 shadow-md"><i class="fa-solid ${isDone ? 'fa-check' : 'fa-clock'}"></i></div><div class="task-card p-4 rounded-xl border border-white/10 group-hover:border-indigo-500/50 transition"><div class="flex justify-between items-start mb-2"><span class="font-bold text-indigo-300 text-sm uppercase tracking-wider">${t.title}</span>${isDone ? '<span class="text-[10px] bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">Xong</span>' : ''}</div><div class="text-slate-100 text-sm mb-3 leading-relaxed border-l-2 border-white/10 pl-3 italic opacity-90">"${t.content}"</div>${actionArea}</div></div>`;
+         });
+         
+         if (!isFullHistory && tasksToRender.length > 0) {
+             const allDone = tasksToRender.every(t => c.history[t.id]);
+             if (allDone) {
+                 const nextStage = stages[status].next;
+                 content.innerHTML += `<div class="pl-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/10 mt-4 fade-in"><button onclick="manualMoveStage('${nextStage}')" class="py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg transition flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-thumbs-up text-lg"></i> KHÁCH ĐỒNG Ý<span class="text-[9px] opacity-80 font-normal">Chuyển sang ${stages[nextStage].title}</span></button><button onclick="manualMoveStage('nurturing', true)" class="py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-xs shadow-lg transition flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-thumbs-down text-lg"></i> KHÁCH TỪ CHỐI<span class="text-[9px] opacity-80 font-normal">Chuyển sang Nuôi dưỡng</span></button></div>`;
+             }
+         }
+    }
+    
+    function renderSOPChecklist(tasks, c) {
+        const div = document.getElementById('sopChecklist'); div.innerHTML = '';
+        tasks.forEach(t => {
+             const isDone = c.history && c.history[t.id];
+             div.innerHTML += `<div class="p-4 border rounded-xl mb-3 cursor-pointer flex gap-4 ${isDone?'border-emerald-500/50 bg-emerald-900/20':'border-white/10 bg-black/20'} transition hover:bg-white/10" onclick="toggleHistory('${t.id}')"><div class="pt-1"><div class="w-6 h-6 border-2 rounded flex items-center justify-center transition ${isDone?'bg-emerald-500 border-emerald-500':'border-slate-500'}">${isDone?'<i class="fa-solid fa-check text-white text-xs"></i>':''}</div></div><div class="flex-1"><div class="font-bold text-sm text-slate-200 mb-1">${t.title}</div><div class="text-xs text-slate-400 mb-1">${t.desc}</div><div class="text-[10px] text-indigo-300 font-mono bg-indigo-900/30 px-2 py-0.5 rounded w-fit">Hạn: ${t.due}</div></div></div>`;
+        });
+        
+        const allDone = tasks.every(t => c.history[t.id]);
+        if (allDone) {
+            const currentStage = c.status; const nextStage = stages[currentStage].next;
+            
+            // LOGIC DIEU HUONG CU THE (MOI CAP NHAT)
+            if (currentStage === 'stage1') {
+                div.innerHTML += `<div class="grid grid-cols-2 gap-3 mt-4 fade-in">
+                    <button onclick="manualMoveStage('${nextStage}')" class="py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2"><i class="fa-solid fa-thumbs-up"></i> KHÁCH ĐỒNG Ý</button>
+                    <button onclick="manualMoveStage('chase1', true)" class="py-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2"><i class="fa-solid fa-thumbs-down"></i> KHÁCH KHÔNG ĐỒNG Ý</button>
+                </div>`;
+            } 
+            else if (currentStage === 'stage3') {
+                div.innerHTML += `<div class="grid grid-cols-2 gap-3 mt-4 fade-in">
+                    <button onclick="manualMoveStage('${nextStage}')" class="py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2"><i class="fa-solid fa-forward"></i> CHUYỂN GIAI ĐOẠN TIẾP</button>
+                    <button onclick="manualMoveStage('chase2', true)" class="py-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2"><i class="fa-solid fa-fire"></i> KHÁCH TỪ CHỐI / CẦN THUYẾT PHỤC</button>
+                </div>`;
+            }
+            // Logic mặc định cho các Stage còn lại
+            else if(currentStage === 'stage5') { 
+                div.innerHTML += `<button onclick="manualMoveStage('won')" class="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg animate-pulse transition flex items-center justify-center gap-2 mt-4 border border-white/20 fade-in"><i class="fa-solid fa-trophy text-lg"></i> HOÀN THÀNH DỰ ÁN (WON)</button>`;
+            } else if(nextStage) { 
+                div.innerHTML += `<button onclick="manualMoveStage('${nextStage}')" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm shadow-lg animate-pulse transition flex items-center justify-center gap-2 mt-4 fade-in"><i class="fa-solid fa-forward"></i> CHUYỂN GIAI ĐOẠN TIẾP THEO</button>`;
+            }
+        }
+    }
+
+    function renderNurturingChecklist(c) {
+        const div = document.getElementById('nurtureChecklist'); div.innerHTML = '';
+        nurturingTasks.forEach(t => { const isDone = c.history && c.history[t.id]; div.innerHTML += `<div class="p-4 bg-black/20 border border-white/10 rounded-xl flex gap-3 cursor-pointer hover:border-indigo-500/50 transition backdrop-blur-sm" onclick="toggleHistory('${t.id}')"><div class="pt-1"><div class="w-5 h-5 border rounded flex items-center justify-center transition ${isDone?'bg-emerald-500 border-emerald-500':'border-slate-500'}">${isDone?'<i class="fa-solid fa-check text-white text-xs"></i>':''}</div></div><div class="flex-1"><div class="text-sm font-bold text-white mb-1">${t.title}</div><div class="text-xs text-slate-300 italic leading-relaxed border-l-2 border-white/10 pl-2">${t.content}</div></div></div>`; });
+        const allDone = nurturingTasks.every(t => c.history[t.id]);
+        if (allDone) {
+            div.innerHTML += `<div class="pt-6 border-t border-white/10 fade-in"><button onclick="manualMoveStage('pending')" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500/30 text-white font-bold py-3 rounded-xl text-xs transition flex items-center justify-center gap-2"><i class="fa-regular fa-clock"></i> CHUYỂN SANG TẠM HOÃN (DÀI HẠN)</button></div>`;
+        }
+    }
+    
+    function renderPendingChecklist(c) {
+        const div = document.getElementById('pendingChecklist'); div.innerHTML = '';
+        document.getElementById('pendingReasonDisplay').innerText = c.dropReason || "Không có lý do cụ thể.";
+
+        longTermTasks.forEach(t => { 
+            const isDone = c.history && c.history[t.id]; 
+            div.innerHTML += `<div class="p-4 bg-black/20 border border-white/10 rounded-xl flex gap-3 cursor-pointer hover:border-indigo-500/50 transition backdrop-blur-sm" onclick="toggleHistory('${t.id}')"><div class="pt-1"><div class="w-5 h-5 border rounded flex items-center justify-center transition ${isDone?'bg-emerald-500 border-emerald-500':'border-slate-500'}">${isDone?'<i class="fa-solid fa-check text-white text-xs"></i>':''}</div></div><div class="flex-1"><div class="text-sm font-bold text-white mb-1">${t.title}</div><div class="text-xs text-slate-300 italic leading-relaxed border-l-2 border-white/10 pl-2">${t.content}</div></div></div>`; 
+        });
+    }
+
+    function toggleHistory(tid) { 
+        const c = customers.find(x => x.id === currentId); 
+        if(!c.history) c.history = {}; 
+        c.history[tid] = !c.history[tid]; 
+        
+        const idx = customers.findIndex(x => x.id === currentId);
+        customers[idx] = c;
+        localStorage.setItem('sundn_crm_final_v28_routing_machine', JSON.stringify(customers));
+        renderKanban(); renderActivityBoard(); renderList(); renderMap(); // Update all BG views
+        switchViewMode(); 
+    } 
+    
+    function runAdvancedAI() { 
+        const btn = document.getElementById('btnAnalyze'); const resultArea = document.getElementById('aiResultArea'); const c = customers.find(x => x.id === currentId); const status = c.status; 
+        
+        let historyText = "";
+        if(c.inputHistory && c.inputHistory.length > 0) {
+            historyText = c.inputHistory.map(h => `"${h.text}"`).join("; ");
+        } else {
+            historyText = "Chưa có ghi chú input cụ thể.";
+        }
+
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ĐANG XỬ LÝ DỮ LIỆU...'; btn.classList.add('opacity-75', 'cursor-wait'); 
+        
+        setTimeout(() => { 
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> PHÂN TÍCH CHUYÊN SÂU & ĐỀ XUẤT KỊCH BẢN'; 
+            btn.classList.remove('opacity-75', 'cursor-wait'); 
+            resultArea.classList.remove('hidden'); 
+            document.querySelectorAll('.ai-step').forEach(s => { s.classList.remove('opacity-0'); s.classList.add('fade-in'); }); 
+            
+            let contextText = "", insightText = "", scriptText = ""; 
+            
+            if (status === 'chase1' || status === 'stage1') {
+                contextText = `<ul class="list-disc list-inside space-y-1 text-slate-300"><li><b class="text-blue-400">Giai đoạn:</b> Tiếp cận ban đầu (Khách lạnh).</li><li><b class="text-blue-400">Dữ liệu:</b> ${historyText.substring(0, 60)}...</li></ul>`;
+                insightText = `<p class="text-slate-200 text-sm">Khách hàng chưa có niềm tin. Cần tập trung vào <b>Uy tín công ty</b> và <b>Lợi ích sát sườn</b> thay vì báo giá ngay.</p>`;
+                scriptText = `
+                <div class="space-y-3 text-slate-200 font-normal">
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-emerald-500">
+                        <div class="text-[10px] text-emerald-400 font-bold uppercase mb-1">1. Chào hỏi & Kết nối</div>
+                        "Chào anh ${c.name}, em gọi từ SUNDN Solar đây ạ. Em thấy khu vực nhà mình hướng nắng rất tốt, không biết anh đã từng nghĩ đến việc tận dụng mái nhà để giảm tiền điện chưa ạ?"
+                    </div>
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-orange-500">
+                        <div class="text-[10px] text-orange-400 font-bold uppercase mb-1">2. Xử lý "Chưa có nhu cầu"</div>
+                        "Dạ em hiểu ạ. Thực ra em không mời anh lắp ngay đâu. Em chỉ muốn gửi anh xem trước bản tính toán xem nhà mình tiết kiệm được bao nhiêu tiền mỗi tháng. Anh xem thấy hợp lý thì mình tính tiếp, không thì coi như tham khảo thôi ạ."
+                    </div>
+                </div>`;
+            } else if (status === 'chase2') {
+                contextText = `<ul class="list-disc list-inside space-y-1 text-slate-300"><li><b class="text-blue-400">Giai đoạn:</b> Đang cân nhắc (Khách ấm).</li><li><b class="text-blue-400">Rào cản:</b> Giá cả hoặc so sánh đối thủ.</li></ul>`;
+                insightText = `<p class="text-slate-200 text-sm">Khách đang so sánh giá. Cần nhấn mạnh vào <b>Rủi ro kỹ thuật</b> nếu chọn đội giá rẻ (thấm dột, cháy nổ).</p>`;
+                scriptText = `
+                <div class="space-y-3 text-slate-200 font-normal">
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-purple-500">
+                        <div class="text-[10px] text-purple-400 font-bold uppercase mb-1">1. Đồng cảm về giá</div>
+                        "Dạ anh ${c.name}, em biết anh đang phân vân vì bên kia báo giá thấp hơn. Nhưng em chia sẻ thật, tiền nào của nấy anh ạ. Hệ thống dùng 20 năm chứ không phải 1-2 năm."
+                    </div>
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-red-500">
+                        <div class="text-[10px] text-red-400 font-bold uppercase mb-1">2. Đánh vào nỗi đau (Pain Point)</div>
+                        "Nhiều khách bên em lúc đầu cũng chọn bên rẻ, sau 2 năm mái bị thấm dột, gọi bảo hành thì họ thuê thợ ngoài không xử lý được. Bên em cam kết bảo hành thấm dột bằng văn bản riêng. Anh lắp bên em là mua sự yên tâm tuyệt đối ạ."
+                    </div>
+                </div>`;
+            } else if (status === 'stage4') {
+                contextText = `<ul class="list-disc list-inside space-y-1 text-slate-300"><li><b class="text-blue-400">Giai đoạn:</b> Chốt hợp đồng (Closing).</li><li><b class="text-blue-400">Mục tiêu:</b> Ký cọc ngay.</li></ul>`;
+                insightText = `<p class="text-slate-200 text-sm">Khách đã ưng ý kỹ thuật. Cần tạo <b>Sự khan hiếm</b> hoặc <b>Ưu đãi giới hạn</b> để thúc đẩy hành động ngay.</p>`;
+                scriptText = `
+                <div class="space-y-3 text-slate-200 font-normal">
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-emerald-500">
+                        <div class="text-[10px] text-emerald-400 font-bold uppercase mb-1">1. Chốt thử (Trial Close)</div>
+                        "Anh ${c.name} ơi, phương án kỹ thuật và tài chính như vậy là tối ưu nhất rồi. Nếu mình chốt trong tuần này thì đội thi công bên em mới kịp xếp lịch làm trước mùa mưa cho anh."
+                    </div>
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-blue-500">
+                        <div class="text-[10px] text-blue-400 font-bold uppercase mb-1">2. Kêu gọi hành động (CTA)</div>
+                        "Hiện bên em đang có suất ưu đãi tặng gói bảo dưỡng 2 năm cho 5 khách hàng ký sớm tháng này. Em giữ suất này cho anh nhé? Em gửi anh stk cọc luôn ạ."
+                    </div>
+                </div>`;
+            } else {
+                contextText = `<ul class="list-disc list-inside space-y-1 text-slate-300"><li><b class="text-blue-400">Giai đoạn:</b> Triển khai / Tư vấn sâu.</li></ul>`;
+                insightText = `<p class="text-slate-200 text-sm">Tập trung vào tính chuyên nghiệp và minh bạch trong quy trình làm việc.</p>`;
+                scriptText = `
+                <div class="space-y-3 text-slate-200 font-normal">
+                    <div class="p-3 bg-white/5 rounded-lg border-l-2 border-gray-500">
+                        <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">Kịch bản tiêu chuẩn</div>
+                        "Dạ chào anh ${c.name}, theo quy trình bên em, bước tiếp theo kỹ thuật sẽ qua đo đạc chi tiết để lên bản vẽ 3D chính xác nhất. Việc này hoàn toàn miễn phí, anh sắp xếp cho em xin 30 phút vào ngày mai được không ạ?"
+                    </div>
+                </div>`;
+            }
+            
+            document.getElementById('aiContext1').innerHTML = contextText; 
+            document.getElementById('aiInsight').innerHTML = insightText; 
+            document.getElementById('aiScriptContent').innerHTML = scriptText; 
+        }, 1500); 
+    }
+
+    function showToast(msg, type) { const box = document.createElement('div'); box.className = `glass-widget px-4 py-3 rounded-lg border-l-4 ${type==='success'?'border-emerald-500': type==='warning'?'border-orange-500':'border-red-500'} text-white shadow-xl fade-in backdrop-blur-md`; box.innerHTML = `<i class="fa-solid ${type==='success'?'fa-check-circle text-emerald-400': type==='warning'?'fa-circle-exclamation text-orange-400':'fa-exclamation text-red-400'} mr-2"></i>${msg}`; document.getElementById('toastContainer').appendChild(box); setTimeout(() => box.remove(), 3000); }
+    function allowDrop(ev) { ev.preventDefault(); }
+    function drag(ev, id) { ev.dataTransfer.setData("text", id); }
+    function drop(ev, status) { ev.preventDefault(); const id = Number(ev.dataTransfer.getData("text")); const idx = customers.findIndex(c => c.id === id); if(idx > -1) { customers[idx].status = status; saveSilent(); init(); } }
+    init();
+</script>
+</body>
+</html>
